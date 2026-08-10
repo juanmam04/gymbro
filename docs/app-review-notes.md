@@ -47,6 +47,7 @@ Perfil → Cuenta → Eliminar cuenta → confirmaciones → la cuenta y datos a
 
 ## Notas técnicas para Apple
 
+- Bundle ID: `com.juanmamartinez.gymbro`
 - No hay compras in-app en esta versión
 - No es una app médica; las estimaciones son aproximadas
 - Push notifications requieren permiso del usuario

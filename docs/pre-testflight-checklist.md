@@ -18,8 +18,8 @@
 
 ## IOS
 
-- [ ] Bundle ID = `com.gymbro.app` confirmado en Apple
-- [ ] App ID registrado
+- [ ] Bundle ID = `com.juanmamartinez.gymbro` confirmado en Apple
+- [ ] App ID registrado (Explicit / Push Notifications)
 - [ ] Icon 1024 (`assets/icon.png`)
 - [ ] Splash negro + logo
 - [ ] Camera permission copy
@@ -40,7 +40,7 @@
 ## APPLE
 
 - [ ] Apple Developer membership
-- [ ] App Store Connect app creada
+- [ ] App Store Connect app creada con Bundle ID `com.juanmamartinez.gymbro`
 - [ ] Build uploaded
 - [ ] TestFlight processing
 - [ ] Internal tester agregado

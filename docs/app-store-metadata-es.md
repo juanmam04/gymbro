@@ -1,5 +1,16 @@
 # Metadata App Store (ES) — borrador
 
+## App Store Connect — Nueva app
+
+| Campo | Valor |
+|-------|-------|
+| Plataforma | iOS |
+| Nombre | GymBro |
+| Idioma principal | Español |
+| Bundle ID / ID de pack | `com.juanmamartinez.gymbro` |
+| SKU | `gymbro-ios-001` |
+| Acceso de usuarios | Acceso ilimitado |
+
 ## Nombre
 GymBro
 

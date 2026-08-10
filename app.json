@@ -11,7 +11,7 @@
     "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.gymbro.app",
+      "bundleIdentifier": "com.juanmamartinez.gymbro",
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "GymBro usa la cámara para escanear y registrar tus comidas.",
