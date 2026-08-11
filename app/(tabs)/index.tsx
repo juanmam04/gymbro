@@ -374,6 +374,12 @@ export default function HomeScreen() {
             onPress: () => router.push('/(tabs)/scan'),
           },
           {
+            key: 'barcode',
+            label: 'Escanear código',
+            icon: 'barcode-outline',
+            onPress: () => router.push('/meal/barcode'),
+          },
+          {
             key: 'search',
             label: 'Buscar alimento',
             icon: 'search-outline',

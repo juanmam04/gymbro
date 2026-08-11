@@ -37,7 +37,8 @@ Los datos se almacenan en infraestructura de **Supabase** (base de datos, autent
 
 - **Supabase:** backend de Auth, base de datos y Storage.
 - **Expo / Apple Push Notification service:** entrega de notificaciones push cuando están habilitadas.
-- Un proveedor de análisis nutricional por imagen podrá agregarse en el futuro; hoy el análisis puede ser simulado/local y no implica un scanner IA productivo externo.
+- Un proveedor de análisis nutricional por imagen (**OpenAI**, vía Edge Function segura) puede recibir fotos de comidas para identificar alimentos y estimar porciones. Los valores nutricionales se calculan con bases de datos/tablas de referencia, no se inventan ciegamente por el modelo.
+- **Open Food Facts** puede usarse para productos con código de barras.
 
 ## 6. Compartir con tu partner
 

@@ -7,6 +7,10 @@ import { useAuth } from '@/providers/AuthProvider';
 /**
  * Subscribes to meals, reactions and comments for feed user ids
  * and invalidates the feed query on changes.
+ *
+ * All `.on()` handlers must be registered before `.subscribe()`.
+ * Channel names are unique per effect run so React Strict Mode /
+ * fast remounts never attach callbacks to an already-subscribed channel.
  */
 export function useFeedRealtime(userIds: string[]) {
   const queryClient = useQueryClient();
@@ -15,45 +19,25 @@ export function useFeedRealtime(userIds: string[]) {
   const idsKey = userIds.slice().sort().join(',');
 
   useEffect(() => {
-    if (!viewerId || userIds.length === 0) return;
+    if (!viewerId || !idsKey) return;
 
     const invalidateFeed = () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.feed(viewerId) });
     };
 
-    const channel = supabase.channel(`feed:${viewerId}:${idsKey}`);
+    const sortedIds = idsKey.split(',').filter(Boolean);
+    const mealsFilter =
+      sortedIds.length === 1
+        ? `user_id=eq.${sortedIds[0]}`
+        : `user_id=in.(${sortedIds.join(',')})`;
 
-    for (const userId of userIds) {
-      channel
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'meals', filter: `user_id=eq.${userId}` },
-          invalidateFeed,
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'meal_reactions',
-            filter: `user_id=eq.${userId}`,
-          },
-          invalidateFeed,
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'meal_comments',
-            filter: `user_id=eq.${userId}`,
-          },
-          invalidateFeed,
-        );
-    }
-
-    // Reactions/comments from other users on our meals
-    channel
+    const channel = supabase
+      .channel(`feed:${viewerId}:${idsKey}:${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'meals', filter: mealsFilter },
+        invalidateFeed,
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'meal_reactions' },
@@ -70,5 +54,5 @@ export function useFeedRealtime(userIds: string[]) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [viewerId, idsKey, queryClient, userIds]);
+  }, [viewerId, idsKey, queryClient]);
 }

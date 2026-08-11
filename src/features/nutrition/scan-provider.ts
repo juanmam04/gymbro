@@ -1,65 +1,35 @@
-import type { ScanResult, NutritionScanProvider } from '@/types/nutrition';
-import { sumTotals } from '@/utils/nutrition';
+import type { NutritionScanProvider } from '@/types/nutrition';
+import { MockNutritionScanProvider } from '@/features/nutrition/providers/MockNutritionScanProvider';
+import { RealNutritionScanProvider } from '@/features/nutrition/providers/RealNutritionScanProvider';
+
+export type ScanProviderMode = 'mock' | 'real';
 
 /**
- * Mock provider so the full scan → edit → publish flow works without an external AI API.
- * Swap this for a real provider implementing NutritionScanProvider.
+ * EXPO_PUBLIC_NUTRITION_SCAN_PROVIDER=mock|real
+ * Default: mock in __DEV__, real in production builds.
+ * Production never silently fakes detections when mode=real fails — errors surface in UI.
  */
-export class MockNutritionScanProvider implements NutritionScanProvider {
-  readonly name = 'mock';
-
-  async scanFood(_imageUri: string): Promise<ScanResult> {
-    await delay(1400);
-
-    const foods = [
-      {
-        name: 'Pechuga de pollo',
-        estimatedGrams: 180,
-        calories: 297,
-        protein: 56,
-        carbs: 0,
-        fat: 6.5,
-        confidence: 0.91,
-      },
-      {
-        name: 'Arroz blanco',
-        estimatedGrams: 200,
-        calories: 260,
-        protein: 5.4,
-        carbs: 56,
-        fat: 0.6,
-        confidence: 0.87,
-      },
-      {
-        name: 'Palta',
-        estimatedGrams: 60,
-        calories: 96,
-        protein: 1.2,
-        carbs: 5.1,
-        fat: 8.8,
-        confidence: 0.82,
-      },
-    ];
-
-    return {
-      foods,
-      totals: sumTotals(foods),
-      provider: this.name,
-      analyzedAt: new Date().toISOString(),
-    };
-  }
+export function resolveScanProviderMode(): ScanProviderMode {
+  const raw = (process.env.EXPO_PUBLIC_NUTRITION_SCAN_PROVIDER ?? '').trim().toLowerCase();
+  if (raw === 'mock' || raw === 'real') return raw;
+  return __DEV__ ? 'mock' : 'real';
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-let activeProvider: NutritionScanProvider = new MockNutritionScanProvider();
+let activeProvider: NutritionScanProvider | null = null;
 
 export function getNutritionScanProvider(): NutritionScanProvider {
+  if (!activeProvider) {
+    activeProvider =
+      resolveScanProviderMode() === 'real'
+        ? new RealNutritionScanProvider()
+        : new MockNutritionScanProvider();
+  }
   return activeProvider;
 }
 
 export function setNutritionScanProvider(provider: NutritionScanProvider): void {
   activeProvider = provider;
 }
+
+export { MockNutritionScanProvider } from '@/features/nutrition/providers/MockNutritionScanProvider';
+export { RealNutritionScanProvider } from '@/features/nutrition/providers/RealNutritionScanProvider';

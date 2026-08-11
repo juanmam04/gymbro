@@ -1,14 +1,17 @@
--- Project config for local Supabase CLI (optional)
-project_id = "gymbro"
+# GymBro Supabase project config
+project_id = "rhshfpubyevumepcmbzv"
 
 [api]
 enabled = true
-port = 54321
 
 [db]
-port = 54322
-major_version = 15
+major_version = 17
 
-[studio]
-enabled = true
-port = 54323
+[functions.analyze-food]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.notify-partner]
+verify_jwt = false

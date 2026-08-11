@@ -63,6 +63,7 @@ export default function RootLayout() {
             <Stack.Screen name="meal/result" />
             <Stack.Screen name="meal/manual" />
             <Stack.Screen name="meal/search" />
+            <Stack.Screen name="meal/barcode" />
             <Stack.Screen name="meal/repeat" />
             <Stack.Screen name="meal/[id]" />
             <Stack.Screen name="meal/edit/[id]" />

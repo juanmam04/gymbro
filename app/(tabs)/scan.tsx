@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,16 +13,36 @@ import { colors, radius, spacing, typography } from '@/lib/theme';
 import { useScanDraftStore } from '@/stores/scan-draft';
 import { getErrorMessage } from '@/utils/errors';
 
+const PHASES = [
+  'Mirando tu comida…',
+  'Identificando alimentos…',
+  'Calculando cantidades…',
+  'Preparando el resultado…',
+];
+
 export default function ScanScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const imageUri = useScanDraftStore((s) => s.imageUri);
   const isAnalyzing = useScanDraftStore((s) => s.isAnalyzing);
+  const analyzingPhase = useScanDraftStore((s) => s.analyzingPhase);
   const setImageUri = useScanDraftStore((s) => s.setImageUri);
   const setAnalyzing = useScanDraftStore((s) => s.setAnalyzing);
   const applyScanResult = useScanDraftStore((s) => s.applyScanResult);
   const reset = useScanDraftStore((s) => s.reset);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    let i = 0;
+    setAnalyzing(true, PHASES[0]);
+    const id = setInterval(() => {
+      i = Math.min(i + 1, PHASES.length - 1);
+      setAnalyzing(true, PHASES[i]);
+    }, 1600);
+    return () => clearInterval(id);
+  }, [isAnalyzing, setAnalyzing]);
 
   const askCameraPermission = async () => {
     const result = await requestPermission();
@@ -40,12 +60,10 @@ export default function ScanScreen() {
 
   const takePhoto = async () => {
     const photo = await cameraRef.current?.takePictureAsync({
-      quality: 0.8,
+      quality: 0.7,
       skipProcessing: true,
     });
-    if (photo?.uri) {
-      setImageUri(photo.uri);
-    }
+    if (photo?.uri) setImageUri(photo.uri);
   };
 
   const pickFromLibrary = async () => {
@@ -61,33 +79,52 @@ export default function ScanScreen() {
       );
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
+      quality: 0.7,
     });
-    if (!result.canceled && result.assets[0]?.uri) {
-      setImageUri(result.assets[0].uri);
-    }
+    if (!result.canceled && result.assets[0]?.uri) setImageUri(result.assets[0].uri);
   };
 
   const analyze = async () => {
     if (!imageUri) return;
-    setAnalyzing(true);
+    cancelledRef.current = false;
+    setAnalyzing(true, PHASES[0]);
     try {
       const provider = getNutritionScanProvider();
       const result = await provider.scanFood(imageUri);
+      if (cancelledRef.current) return;
+      if (result.multiplePlatesSuspected) {
+        Alert.alert(
+          'Vemos más de un plato',
+          'Para un resultado más preciso, acercate a tu plato y sacá otra foto.',
+          [
+            { text: 'Otra foto', onPress: () => setImageUri(null) },
+            {
+              text: 'Continuar igual',
+              onPress: () => {
+                applyScanResult(result);
+                router.push('/meal/result');
+              },
+            },
+          ],
+        );
+        setAnalyzing(false);
+        return;
+      }
       applyScanResult(result);
       router.push('/meal/result');
     } catch (err) {
       setAnalyzing(false);
-      Alert.alert('No se pudo analizar', getErrorMessage(err));
+      Alert.alert('No pudimos identificar bien esta comida', getErrorMessage(err), [
+        { text: 'Otra foto', onPress: () => setImageUri(null) },
+        { text: 'Agregar manualmente', onPress: () => router.push('/meal/manual') },
+        { text: 'Cerrar', style: 'cancel' },
+      ]);
     }
   };
 
-  if (!permission) {
-    return <LoadingState />;
-  }
+  if (!permission) return <LoadingState />;
 
   if (!permission.granted) {
     return (
@@ -105,7 +142,21 @@ export default function ScanScreen() {
   }
 
   if (isAnalyzing) {
-    return <LoadingState message="Analizando comida…" />;
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.permission}>
+          <LoadingState message={analyzingPhase ?? PHASES[0]} />
+          <Button
+            title="Cancelar"
+            variant="ghost"
+            onPress={() => {
+              cancelledRef.current = true;
+              setAnalyzing(false);
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (imageUri) {
@@ -131,11 +182,7 @@ export default function ScanScreen() {
         <View style={styles.overlay}>
           <Text style={styles.overlayTitle}>Escaneá tu comida</Text>
           <View style={styles.controls}>
-            <Pressable
-              style={styles.sideButton}
-              onPress={() => void pickFromLibrary()}
-              accessibilityLabel="Galería"
-            >
+            <Pressable style={styles.sideButton} onPress={() => void pickFromLibrary()} accessibilityLabel="Galería">
               <Ionicons name="images-outline" size={28} color={colors.white} />
             </Pressable>
             <Pressable style={styles.shutter} onPress={() => void takePhoto()} accessibilityLabel="Tomar foto" />
@@ -183,7 +230,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: spacing.xxxl,
     paddingHorizontal: spacing.xl,
-    backgroundColor: 'transparent',
   },
   overlayTitle: {
     ...typography.h3,
@@ -196,12 +242,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sideButton: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  sideButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   shutter: {
     width: 72,
     height: 72,

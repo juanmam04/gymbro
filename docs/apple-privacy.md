@@ -61,7 +61,10 @@ Solo si hay conexión `accepted` y según flags de privacidad del perfil:
 |----------|-------|--------|
 | Supabase (Auth, DB, Storage) | cuenta, nutrición, imágenes, tokens | backend principal |
 | Expo Push / APNs (vía EAS) | push token + payload de notificación | avisos al partner / recordatorios |
-| Proveedor de scanner | **aún no en producción** (mock local) | cuando exista, documentar aparte |
+| OpenAI (Edge Function `analyze-food`) | foto de comida (base64) + prompt | detección visual de alimentos / porciones estimadas — solo si scanner real está activo |
+| Open Food Facts | código de barras / respuesta pública de producto | lookup de productos empaquetados |
+
+Las kcal/macros **no** se toman del modelo de visión como fuente primaria: se calculan con tablas curadas / Open Food Facts.
 
 ## 6. Supabase
 
