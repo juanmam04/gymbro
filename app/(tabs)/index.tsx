@@ -238,6 +238,21 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            <View style={styles.rachaHero}>
+              <Text style={styles.rachaEyebrow}>TU CONSTANCIA, TU RACHA</Text>
+              <Text style={styles.rachaNumber}>🔥 {personalStreak} {personalStreak === 1 ? 'día' : 'días'}</Text>
+              <Text style={styles.rachaSubtitle}>Cada comida registrada suma a tus hábitos. No hace falta hacerlo perfecto.</Text>
+              {partner ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Ver progreso con tu compañero" onPress={() => router.push(`/partner/${partner.id}`)} style={styles.rachaDuo}>
+                  <Text style={styles.rachaDuoText}>♥ {jointStreak} {jointStreak === 1 ? 'día' : 'días'} juntos · {partner.display_name} →</Text>
+                </Pressable>
+              ) : (
+                <Pressable accessibilityRole="button" onPress={() => router.push('/partner/invite')} style={styles.rachaDuo}>
+                  <Text style={styles.rachaDuoText}>Invitá a alguien y creen una racha juntos →</Text>
+                </Pressable>
+              )}
+            </View>
+
             {displayMode === 'detailed' && goals ? (
               <NutritionSummary
                 consumed={totals}
@@ -404,6 +419,14 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  rachaHero: {
+    backgroundColor: '#172A22', borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm,
+  },
+  rachaEyebrow: { ...typography.label, color: '#C8F56C', letterSpacing: 1 },
+  rachaNumber: { ...typography.brand, fontSize: 36, lineHeight: 44, color: '#FFFFFF' },
+  rachaSubtitle: { ...typography.body, color: '#D7E7D7' },
+  rachaDuo: { backgroundColor: '#34513A', padding: spacing.md, borderRadius: radius.md, marginTop: spacing.sm },
+  rachaDuoText: { ...typography.label, color: '#E6F7CF' },
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.xl, paddingBottom: spacing.xxxl, gap: spacing.lg },
   headerBlock: { gap: spacing.lg, marginBottom: spacing.md },

@@ -50,7 +50,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Escanear',
+          title: 'Registrar',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'camera' : 'camera-outline'}
@@ -63,7 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Progreso',
+          title: 'Rachas',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart-outline" size={size} color={color} />
           ),

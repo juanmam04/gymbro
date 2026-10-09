@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are a food vision assistant for GymBro (Uruguay/LATAM).
+              content: `You are a food vision assistant for RACHA (Uruguay/LATAM).
 Return ONLY valid JSON matching this shape: ${VISION_SCHEMA_HINT}
 
 Rules:

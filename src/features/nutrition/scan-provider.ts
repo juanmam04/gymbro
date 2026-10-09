@@ -6,13 +6,13 @@ export type ScanProviderMode = 'mock' | 'real';
 
 /**
  * EXPO_PUBLIC_NUTRITION_SCAN_PROVIDER=mock|real
- * Default: mock in __DEV__, real in production builds.
+ * Default: real in every build. Use mock only when explicitly requested for local development.
  * Production never silently fakes detections when mode=real fails — errors surface in UI.
  */
 export function resolveScanProviderMode(): ScanProviderMode {
   const raw = (process.env.EXPO_PUBLIC_NUTRITION_SCAN_PROVIDER ?? '').trim().toLowerCase();
   if (raw === 'mock' || raw === 'real') return raw;
-  return __DEV__ ? 'mock' : 'real';
+  return 'real';
 }
 
 let activeProvider: NutritionScanProvider | null = null;
