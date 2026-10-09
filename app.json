@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "GymBro",
+    "name": "RACHA",
     "slug": "gymbro",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,8 +16,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.juanmamartinez.gymbro",
       "infoPlist": {
-        "NSCameraUsageDescription": "GymBro usa la c\u00e1mara para escanear y registrar tus comidas.",
-        "NSPhotoLibraryUsageDescription": "GymBro usa tus fotos para que puedas registrar comidas y elegir tu foto de perfil.",
+        "NSCameraUsageDescription": "RACHA usa la cámara para escanear y registrar tus comidas.",
+        "NSPhotoLibraryUsageDescription": "RACHA usa tus fotos para que puedas registrar comidas y elegir tu foto de perfil.",
         "UIBackgroundModes": [
           "remote-notification"
         ],
@@ -70,7 +70,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "GymBro usa la c\u00e1mara para escanear y registrar tus comidas.",
+          "cameraPermission": "RACHA usa la cámara para escanear y registrar tus comidas.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -78,7 +78,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "GymBro usa tus fotos para que puedas registrar comidas y elegir tu foto de perfil."
+          "photosPermission": "RACHA usa tus fotos para que puedas registrar comidas y elegir tu foto de perfil."
         }
       ],
       [

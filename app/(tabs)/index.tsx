@@ -289,7 +289,7 @@ export default function HomeScreen() {
 
             {!partner ? (
               <View style={styles.inviteCard}>
-                <Text style={styles.inviteTitle}>GymBro es mejor con alguien.</Text>
+                <Text style={styles.inviteTitle}>RACHA es mejor con alguien.</Text>
                 <Text style={styles.inviteBody}>
                   Compartí comidas, progreso y motivación con tu compañero.
                 </Text>
