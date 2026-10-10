@@ -37,7 +37,7 @@
 - Expo iOS and Android JS exports compile; this does not validate a native binary or camera hardware.
 - Deno source checking can use an offline import map to the installed Supabase SDK when esm.sh is unreachable; this does not verify deployment against the pinned remote dependency.
 - No live migration/function deployment, store product setup or real/sandbox purchase validation was performed: no deployment/store credentials were supplied in this workspace.
-- Visual browser QA could not be completed because the browser download was unavailable. Physical device UI, camera, image upload, notification permissions/delivery and billing QA remain release gates.
+- Browser screen QA completed 100 interaction rounds using actual Home/Profile/Progress source rendered in React Native Web, real React Query and simulated services. This does not count as 100 full real-device uses. Physical device UI, camera, image upload, notification permissions/delivery and billing QA remain release gates.
 - The server quota is the paid-cost boundary. Report/idea UI gating is a convenience; deterministic report logic is shipped in the client and is not a tamper-proof server-only premium service.
 - Logs and monthly quota use UTC on server; reporting uses local phone days. Quota attempts include failures; change this policy before launch if successful-only charging is desired.
 

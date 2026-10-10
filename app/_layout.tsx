@@ -1,4 +1,4 @@
-import { router, Stack, type ErrorBoundaryProps } from 'expo-router';
+import { router, Stack, useRootNavigationState, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
@@ -28,7 +28,10 @@ export default function RootLayout() {
     DMSans_700Bold,
   });
 
+  const navigationState = useRootNavigationState();
+
   useEffect(() => {
+    if (!loaded || !navigationState?.key) return;
     const handle = (response: Notifications.NotificationResponse) => {
       const screen = response.notification.request.content.data?.screen;
       if (screen === 'progress') router.push('/(tabs)/progress');
@@ -43,7 +46,7 @@ export default function RootLayout() {
       }
     });
     return () => listener.remove();
-  }, []);
+  }, [loaded, navigationState?.key]);
 
   useEffect(() => {
     if (error) throw error;
