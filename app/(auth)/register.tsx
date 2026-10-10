@@ -52,7 +52,7 @@ export default function RegisterScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
-            <Text style={styles.brand}>GymBro</Text>
+            <Text style={styles.brand}>RACHA</Text>
             <Text style={styles.title}>Creá tu cuenta</Text>
             <Text style={styles.subtitle}>Empezá a registrar y compartir tu comida.</Text>
           </View>

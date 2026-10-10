@@ -121,7 +121,7 @@ export default function ProfileScreen() {
       if (!permission.granted) {
         Alert.alert(
           'Acceso a fotos',
-          'GymBro necesita acceso a tus fotos para cambiar tu foto de perfil. Podés habilitarlo en Ajustes.',
+          'RACHA necesita acceso a tus fotos para cambiar tu foto de perfil. Podés habilitarlo en Ajustes.',
           [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Abrir Ajustes', onPress: () => void Linking.openSettings() },

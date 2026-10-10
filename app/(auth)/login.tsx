@@ -61,7 +61,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
-            <Text style={styles.brand}>GymBro</Text>
+            <Text style={styles.brand}>RACHA</Text>
             <Text style={styles.subtitle}>Comé mejor. Juntos.</Text>
           </View>
 

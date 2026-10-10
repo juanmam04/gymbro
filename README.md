@@ -146,7 +146,7 @@ Es una estimación heurística, **no consejo médico**. Editable después en Per
 NutritionScanProvider.scanFood(imageUri) → ScanResult
 ```
 
-Implementación actual: **`MockNutritionScanProvider`**
+Implementación: **`RealNutritionScanProvider`** por defecto. El mock requiere EXPO_PUBLIC_NUTRITION_SCAN_PROVIDER=mock de manera explícita.
 
 Plato mock:
 
@@ -213,7 +213,7 @@ Además del MVP base:
 
 ## Próximos pasos
 
-1. Provider real de vision / nutrition
+1. Validar y desplegar provider real de vision / nutrition
 2. Activar webhook + `EXPO_ACCESS_TOKEN`
 3. Realtime subscription en feed
 4. UX de “comí con mi partner”

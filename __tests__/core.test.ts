@@ -75,6 +75,19 @@ describe('streaks', () => {
   });
 });
 
+describe('RACHA streak resilience', () => {
+  it('ignores malformed timestamps', () => {
+    expect(calculatePersonalStreak([{ eatenAt: 'invalid' }], { now: new Date('2026-03-10T18:00:00') })).toBe(0);
+  });
+  it('permits explicit paused days without adding fake days', () => {
+    const meals = [
+      { eatenAt: '2026-03-08T08:00:00' }, { eatenAt: '2026-03-08T12:00:00' },
+      { eatenAt: '2026-03-10T08:00:00' }, { eatenAt: '2026-03-10T12:00:00' },
+    ];
+    expect(calculateJointStreak(meals, meals, { now: new Date('2026-03-10T18:00:00'), pausedDayKeys: ['2026-03-09'] })).toBe(2);
+  });
+});
+
 describe('privacy + simple messages', () => {
   it('redacts macros for partner when share_macros is false', () => {
     const meal = {
