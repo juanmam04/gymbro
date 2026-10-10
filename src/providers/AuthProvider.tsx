@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/constants';
@@ -6,19 +6,15 @@ import { clearPendingInviteCode } from '@/features/partner/invite-utils';
 import { logger } from '@/lib/logger';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { getProfile } from '@/services/auth';
-import { registerForPushNotificationsAsync } from '@/services/notifications';
+import { registerForPushNotificationsAsync,
+  clearCurrentDevicePush, syncLocalReminders } from '@/services/notifications';
 import { getAcceptedPartner, getNutritionGoals } from '@/services/partner';
 import { useOnboardingStore } from '@/stores/onboarding';
 import { useScanDraftStore } from '@/stores/scan-draft';
 import type { NutritionGoals, Profile } from '@/types/database';
 
 type AppGate =
-  | 'loading'
-  | 'unauthenticated'
-  | 'needs_onboarding'
-  | 'needs_partner'
-  | 'ready'
-  | 'misconfigured';
+  'loading' | 'unauthenticated' | 'needs_onboarding' | 'needs_partner' | 'ready' | 'misconfigured';
 
 interface AuthContextValue {
   session: Session | null;
@@ -38,7 +34,6 @@ function isQueryBootstrapping(query: {
   isFetching: boolean;
   isError: boolean;
 }): boolean {
-  if (query.isFetching) return true;
   // Disabled queries report isPending without fetching; once enabled, wait until first result.
   if (!query.isFetched && !query.isError) return true;
   return false;
@@ -110,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enabled: Boolean(userId) && isSupabaseConfigured,
   });
 
-  const gate: AppGate = useMemo(() => {
+  const gate: AppGate = (() => {
     if (!isSupabaseConfigured) return 'misconfigured';
     if (sessionLoading) return 'loading';
     if (!session) return 'unauthenticated';
@@ -129,21 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return 'ready';
-  }, [
-    session,
-    sessionLoading,
-    profileQuery.data,
-    profileQuery.isFetched,
-    profileQuery.isFetching,
-    profileQuery.isError,
-    goalsQuery.data,
-    goalsQuery.isFetched,
-    goalsQuery.isFetching,
-    goalsQuery.isError,
-    partnerQuery.isFetched,
-    partnerQuery.isFetching,
-    partnerQuery.isError,
-  ]);
+  })();
 
   useEffect(() => {
     // Sync token only if permission was already granted — never prompt on launch.
@@ -152,6 +133,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Push sync is best-effort.
     });
   }, [gate, userId]);
+
+  useEffect(() => {
+    if (gate !== 'ready' || !userId) return;
+    void syncLocalReminders(userId, profileQuery.data ?? undefined).catch(() =>
+      logger.warn('Local reminders unavailable'),
+    );
+  }, [
+    gate,
+    userId,
+    profileQuery.data?.notif_reminders,
+    profileQuery.data?.notif_progress,
+    profileQuery.data,
+  ]);
 
   const value: AuthContextValue = {
     session,
@@ -168,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
     },
     signOut: async () => {
+      if (userId) await clearCurrentDevicePush(userId).catch(() => undefined);
+      void syncLocalReminders(null).catch(() => undefined);
       // Clear UI/session first so guarded layouts redirect immediately.
       setSession(null);
       setSessionLoading(false);

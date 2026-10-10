@@ -1,8 +1,4 @@
-import type {
-  ActivityLevel,
-  BiologicalSex,
-  GoalType,
-} from '@/types/database';
+import type { ActivityLevel, BiologicalSex, GoalType } from '@/types/database';
 
 export const GOAL_OPTIONS: { value: GoalType; label: string; description: string }[] = [
   {
@@ -81,10 +77,10 @@ export const QUERY_KEYS = {
   partner: (userId?: string) => ['partner', userId] as const,
   goals: (userId?: string) => ['goals', userId] as const,
   feed: (userId?: string) => ['feed', userId] as const,
-  todayTotals: (userId?: string) => ['todayTotals', userId] as const,
+  todayTotals: (userId?: string) => ['todayTotals', userId, new Date().toDateString()] as const,
   weekTotals: (userId?: string) => ['weekTotals', userId] as const,
   activeInvite: (userId?: string) => ['activeInvite', userId] as const,
-  waterToday: (userId?: string) => ['waterToday', userId] as const,
+  waterToday: (userId?: string) => ['waterToday', userId, new Date().toDateString()] as const,
   weightLatest: (userId?: string) => ['weightLatest', userId] as const,
   weightHistory: (userId?: string) => ['weightHistory', userId] as const,
   savedMeals: (userId?: string) => ['savedMeals', userId] as const,

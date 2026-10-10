@@ -1,4 +1,4 @@
-# GymBro
+# RACHA
 
 App móvil social de nutrición para **dos personas** (parejas, gym bros, amigos).
 
@@ -97,14 +97,14 @@ Sin ese secret, la function responde `skipped` (no finge que funciona).
 
 ## Scripts
 
-| Script | Descripción |
-|--------|-------------|
-| `npm start` | Expo dev server |
-| `npm run ios` | Abrir iOS |
-| `npm run android` | Abrir Android |
-| `npm run typecheck` | TypeScript |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
+| Script              | Descripción     |
+| ------------------- | --------------- |
+| `npm start`         | Expo dev server |
+| `npm run ios`       | Abrir iOS       |
+| `npm run android`   | Abrir Android   |
+| `npm run typecheck` | TypeScript      |
+| `npm run lint`      | ESLint          |
+| `npm run format`    | Prettier        |
 
 ---
 
@@ -112,11 +112,11 @@ Sin ese secret, la function responde `skipped` (no finge que funciona).
 
 Flujo:
 
-1. Bienvenida  
-2. Nombre  
-3. Objetivo  
-4. Datos básicos (edad, sexo biológico, altura, peso)  
-5. Actividad  
+1. Bienvenida
+2. Nombre
+3. Objetivo
+4. Datos básicos (edad, sexo biológico, altura, peso)
+5. Actividad
 6. Resultado estimado → **Home** (partner opcional)
 
 Partner no bloquea el ingreso. Se invita desde Home/Perfil.
@@ -226,3 +226,7 @@ Además del MVP base:
 
 - Lenguaje interno: `partner` / `connection` / `user` (no boyfriend/girlfriend/couple)
 - Las estimaciones se muestran como **estimación / ≈**, nunca como medición exacta
+
+## Racha Plus y Dúo
+
+Nueva experiencia, registro por texto, orientación, informe semanal, desafíos y suscripciones verificadas por servidor. Activación y límites: [guía de publicación](docs/racha-subscriptions-release.md). Requiere aplicar las nuevas migrations antes del build; las compras nativas no funcionan en Expo Go.

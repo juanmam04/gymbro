@@ -1,14 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionSheet } from '@/components/ui/ActionSheet';
 import { Avatar } from '@/components/ui/Avatar';
@@ -18,12 +11,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { QUERY_KEYS } from '@/constants';
 import { MealCard } from '@/features/feed/MealCard';
-import { NutritionSummary } from '@/features/feed/NutritionSummary';
-import { getSimpleDayMessage } from '@/features/privacy/privacy';
-import {
-  calculateJointStreak,
-  calculatePersonalStreak,
-} from '@/features/streaks/calculateStreaks';
+import { calculateJointStreak, calculatePersonalStreak } from '@/features/streaks/calculateStreaks';
 import { useFeedRealtime } from '@/hooks/useFeedRealtime';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
@@ -38,6 +26,8 @@ import { fetchPendingSharedInvites } from '@/services/shared-meals';
 import { addWaterEntry, fetchTodayWaterMl } from '@/services/water';
 import type { MealReactionType } from '@/types/database';
 import { getErrorMessage } from '@/utils/errors';
+import { dailyGuidance } from '@/features/coaching/coach';
+import { useSubscription } from '@/hooks/useSubscription';
 import { getGreeting } from '@/utils/nutrition';
 
 export default function HomeScreen() {
@@ -45,7 +35,7 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
   const userId = user?.id;
   const [sheetOpen, setSheetOpen] = useState(false);
-  const displayMode = profile?.nutrition_display_mode ?? 'simple';
+  const access = useSubscription();
 
   const feedUserIds = useMemo(() => {
     const ids = [userId].filter(Boolean) as string[];
@@ -105,10 +95,7 @@ export default function HomeScreen() {
   });
 
   const personalStreak = useMemo(
-    () =>
-      calculatePersonalStreak(
-        (myMealsSince.data ?? []).map((m) => ({ eatenAt: m.eaten_at })),
-      ),
+    () => calculatePersonalStreak((myMealsSince.data ?? []).map((m) => ({ eatenAt: m.eaten_at }))),
     [myMealsSince.data],
   );
 
@@ -142,9 +129,7 @@ export default function HomeScreen() {
       return { prev };
     },
     onError: (_e, _ml, ctx) => {
-      if (ctx?.prev != null) {
-        queryClient.setQueryData(QUERY_KEYS.waterToday(userId), ctx.prev);
-      }
+      queryClient.setQueryData(QUERY_KEYS.waterToday(userId), ctx?.prev ?? 0);
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.waterToday(userId) });
@@ -172,21 +157,21 @@ export default function HomeScreen() {
 
   const totals = totalsQuery.data ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
   const meals = feedQuery.data ?? [];
-  const todayMealCount = meals.filter((m) => {
+  const todayMealCount = (myMealsSince.data ?? []).filter((m) => {
     if (m.user_id !== userId) return false;
     const d = new Date(m.eaten_at);
     const now = new Date();
     return d.toDateString() === now.toDateString();
   }).length;
 
-  const simpleMessage = getSimpleDayMessage({
-    consumedCalories: totals.calories,
-    targetCalories: goals?.calories_target ?? 2200,
-    consumedProtein: totals.protein,
-    targetProtein: goals?.protein_target ?? 140,
-    mealCount: todayMealCount,
-  });
-
+  const guidance = dailyGuidance(
+    (myMealsSince.data ?? []).map((m) => ({
+      eatenAt: m.eaten_at,
+      protein: Number(m.total_protein),
+      calories: Number(m.total_calories),
+    })),
+    goals?.protein_target ?? 140,
+  );
   const waterMl = waterQuery.data ?? 0;
   const waterGoal = profile?.water_goal_ml ?? 2500;
 
@@ -222,14 +207,12 @@ export default function HomeScreen() {
           <View style={styles.headerBlock}>
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <Avatar
-                  name={profile?.display_name ?? 'U'}
-                  uri={profile?.avatar_url}
-                  size={48}
-                />
+                <Avatar name={profile?.display_name ?? 'U'} uri={profile?.avatar_url} size={48} />
                 <View>
                   <Text style={styles.greeting}>{getGreeting()}</Text>
-                  <Text style={styles.name}>{profile?.display_name ?? 'Hola'}</Text>
+                  <Text numberOfLines={1} style={styles.name}>
+                    {profile?.display_name?.split(' ')[0] ?? 'Hola'}
+                  </Text>
                 </View>
               </View>
               <View style={styles.streaks}>
@@ -238,109 +221,116 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.rachaHero}>
-              <Text style={styles.rachaEyebrow}>TU CONSTANCIA, TU RACHA</Text>
-              <Text style={styles.rachaNumber}>🔥 {personalStreak} {personalStreak === 1 ? 'día' : 'días'}</Text>
-              <Text style={styles.rachaSubtitle}>Cada comida registrada suma a tus hábitos. No hace falta hacerlo perfecto.</Text>
-              {partner ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="Ver progreso con tu compañero" onPress={() => router.push(`/partner/${partner.id}`)} style={styles.rachaDuo}>
-                  <Text style={styles.rachaDuoText}>♥ {jointStreak} {jointStreak === 1 ? 'día' : 'días'} juntos · {partner.display_name} →</Text>
-                </Pressable>
-              ) : (
-                <Pressable accessibilityRole="button" onPress={() => router.push('/partner/invite')} style={styles.rachaDuo}>
-                  <Text style={styles.rachaDuoText}>Invitá a alguien y creen una racha juntos →</Text>
-                </Pressable>
-              )}
-            </View>
-
-            {displayMode === 'detailed' && goals ? (
-              <NutritionSummary
-                consumed={totals}
-                targets={{
-                  calories: goals.calories_target,
-                  protein: goals.protein_target,
-                  carbs: goals.carbs_target,
-                  fat: goals.fat_target,
-                }}
-              />
-            ) : (
-              <View style={styles.simpleCard}>
-                <Text style={styles.simpleTitle}>{simpleMessage.title}</Text>
-                <Text style={styles.simpleDetail}>{simpleMessage.detail}</Text>
-                {goals ? (
-                  <Text style={styles.simpleMeta}>
-                    ≈ {Math.round(totals.calories)} / {goals.calories_target} kcal
-                  </Text>
-                ) : null}
+            <View style={styles.dashboard}>
+              <View style={styles.dashboardTop}>
+                <Text style={styles.dashboardLabel}>TU DÍA, A TU RITMO</Text>
+                <Text style={styles.dashboardLabel}>{todayMealCount} comidas</Text>
               </View>
-            )}
-
+              <Text style={styles.dashboardValue}>
+                {totalsQuery.isError ? '—' : `≈ ${Math.round(totals.calories)}`}{' '}
+                <Text style={styles.dashboardUnit}>kcal registradas</Text>
+              </Text>
+              <Text style={styles.dashboardNote}>
+                {goals
+                  ? `Referencia personal: ${goals.calories_target} kcal · valores estimados`
+                  : 'Cada registro te ayuda a conocer tus hábitos'}
+              </Text>
+              <View style={styles.dashboardTop}>
+                {[
+                  ['Proteína', totals.protein, goals?.protein_target],
+                  ['Carbos', totals.carbs, goals?.carbs_target],
+                  ['Grasas', totals.fat, goals?.fat_target],
+                ].map(([label, value, target]) => (
+                  <View key={String(label)} style={styles.macro}>
+                    <Text style={styles.dashboardLabel}>{label}</Text>
+                    <Text style={styles.macroValue}>{Math.round(Number(value))} g</Text>
+                    <View style={styles.track}>
+                      <View
+                        style={[
+                          styles.fill,
+                          {
+                            width: `${Math.min(100, Math.max(0, (Number(value) / Math.max(1, Number(target) || 1)) * 100))}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={styles.quickRow}>
+              <Button title="Registrar comida" onPress={() => setSheetOpen(true)} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/meal/repeat')}
+                style={styles.repeat}
+              >
+                <Text style={styles.waterBtnText}>Repetir →</Text>
+              </Pressable>
+            </View>
             <View style={styles.waterCard}>
               <View style={styles.waterHeader}>
                 <Text style={styles.waterTitle}>Agua</Text>
                 <Text style={styles.waterValue}>
-                  {waterMl.toLocaleString('es-AR')} / {waterGoal.toLocaleString('es-AR')} ml
+                  {waterMl.toLocaleString('es-UY')} / {waterGoal.toLocaleString('es-UY')} ml
                 </Text>
               </View>
               <View style={styles.waterActions}>
-                <Pressable
-                  accessibilityLabel="Sumar 250 ml"
-                  style={styles.waterBtn}
-                  onPress={() => waterMutation.mutate(250)}
-                >
-                  <Text style={styles.waterBtnText}>+250 ml</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel="Sumar 500 ml"
-                  style={styles.waterBtn}
-                  onPress={() => waterMutation.mutate(500)}
-                >
-                  <Text style={styles.waterBtnText}>+500 ml</Text>
-                </Pressable>
+                {[250, 500].map((ml) => (
+                  <Pressable
+                    key={ml}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sumar ${ml} ml`}
+                    disabled={waterMutation.isPending}
+                    style={styles.waterBtn}
+                    onPress={() => waterMutation.mutate(ml)}
+                  >
+                    <Text style={styles.waterBtnText}>+{ml} ml</Text>
+                  </Pressable>
+                ))}
               </View>
+              {waterMutation.isError && (
+                <Text style={styles.simpleDetail}>No pudimos guardar el agua. Probá de nuevo.</Text>
+              )}
             </View>
-
-            <Button title="Registrar comida" onPress={() => setSheetOpen(true)} />
-
-            {!partner ? (
-              <View style={styles.inviteCard}>
-                <Text style={styles.inviteTitle}>RACHA es mejor con alguien.</Text>
-                <Text style={styles.inviteBody}>
-                  Compartí comidas, progreso y motivación con tu compañero.
-                </Text>
-                <Button title="Invitar a alguien" onPress={() => router.push('/partner/invite')} />
-                <Button
-                  title="Tengo un código"
-                  variant="secondary"
-                  onPress={() => router.push('/partner/join')}
-                />
-              </View>
-            ) : (
-              <Pressable
-                style={styles.partnerCard}
-                onPress={() => router.push(`/partner/${partner.id}`)}
-              >
-                <View style={styles.partnerRow}>
-                  <Avatar name={partner.display_name} uri={partner.avatar_url} size={40} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.partnerName}>{partner.display_name} hoy</Text>
-                    <Text style={styles.partnerMeta}>
-                      🔥 {partnerStreak}d
-                      {partnerTotalsQuery.data
-                        ? ` · ≈ ${Math.round(partnerTotalsQuery.data.calories)} kcal`
-                        : ''}
-                    </Text>
-                  </View>
+            <Pressable style={styles.simpleCard} onPress={() => router.push('/coach')}>
+              <Text style={styles.coachLabel}>TU PRÓXIMO PASO</Text>
+              <Text style={styles.simpleTitle}>{guidance.title}</Text>
+              <Text style={styles.simpleDetail}>{guidance.detail}</Text>
+              <Text style={styles.waterBtnText}>Ver ideas para comer →</Text>
+            </Pressable>
+            <Pressable
+              style={styles.partnerCard}
+              onPress={() => router.push(partner ? `/partner/${partner.id}` : '/partner/invite')}
+            >
+              <View style={styles.partnerRow}>
+                <Avatar name={partner?.display_name ?? 'R'} uri={partner?.avatar_url} size={36} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.partnerName}>
+                    {partner
+                      ? `Vos y ${partner.display_name.split(' ')[0]}`
+                      : 'Una racha se comparte'}
+                  </Text>
+                  <Text style={styles.partnerMeta}>
+                    {partner
+                      ? `${jointStreak} días juntos · tu compañero lleva ${partnerStreak} días${partnerTotalsQuery.data ? ` · ≈ ${Math.round(partnerTotalsQuery.data.calories)} kcal registradas` : ''}`
+                      : 'Invitá a alguien y acompañense cada día'}
+                  </Text>
                 </View>
-              </Pressable>
-            )}
-
+                <Text style={styles.waterBtnText}>→</Text>
+              </View>
+            </Pressable>
+            <Pressable onPress={() => router.push('/subscription')}>
+              <Text style={styles.simpleMeta}>
+                {access.data
+                  ? `${access.data.plan.toUpperCase()} · ${access.data.remaining} análisis disponibles →`
+                  : 'Conocé Racha Plus →'}
+              </Text>
+            </Pressable>
             {(sharedInvitesQuery.data?.length ?? 0) > 0 ? (
               <Pressable
                 style={styles.sharedBanner}
-                onPress={() =>
-                  router.push(`/shared/${sharedInvitesQuery.data![0]!.id}`)
-                }
+                onPress={() => router.push(`/shared/${sharedInvitesQuery.data![0]!.id}`)}
               >
                 <Text style={styles.sharedText}>
                   Tenés {sharedInvitesQuery.data!.length} comida
@@ -351,7 +341,7 @@ export default function HomeScreen() {
               </Pressable>
             ) : null}
 
-            <Text style={styles.sectionTitle}>Hoy</Text>
+            <Text style={styles.sectionTitle}>Tus últimas comidas</Text>
           </View>
         }
         ListEmptyComponent={
@@ -389,6 +379,12 @@ export default function HomeScreen() {
             onPress: () => router.push('/(tabs)/scan'),
           },
           {
+            key: 'text',
+            label: 'Escribir qué comí',
+            icon: 'chatbubble-outline',
+            onPress: () => router.push('/meal/text'),
+          },
+          {
             key: 'barcode',
             label: 'Escanear código',
             icon: 'barcode-outline',
@@ -419,17 +415,38 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  dashboard: { backgroundColor: colors.primary, borderRadius: 22, padding: 20, gap: 12 },
+  dashboardTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 14 },
+  dashboardLabel: { ...typography.caption, color: '#D3E4D7' },
+  dashboardValue: { ...typography.brand, color: colors.white },
+  dashboardUnit: { ...typography.caption, color: '#D3E4D7' },
+  dashboardNote: { ...typography.caption, color: '#D3E4D7' },
+  macro: { flex: 1, gap: 5 },
+  macroValue: { ...typography.bodyMedium, color: colors.white },
+  track: { height: 4, borderRadius: 2, backgroundColor: '#526F5A', overflow: 'hidden' },
+  fill: { height: 4, backgroundColor: colors.accent },
+  quickRow: { gap: 6 },
+  repeat: { alignSelf: 'center', minHeight: 44, justifyContent: 'center' },
+  coachLabel: { ...typography.label, fontSize: 10, letterSpacing: 1.5, color: colors.primary },
   rachaHero: {
-    backgroundColor: '#172A22', borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm,
+    backgroundColor: '#172A22',
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    gap: spacing.sm,
   },
   rachaEyebrow: { ...typography.label, color: '#C8F56C', letterSpacing: 1 },
   rachaNumber: { ...typography.brand, fontSize: 36, lineHeight: 44, color: '#FFFFFF' },
   rachaSubtitle: { ...typography.body, color: '#D7E7D7' },
-  rachaDuo: { backgroundColor: '#34513A', padding: spacing.md, borderRadius: radius.md, marginTop: spacing.sm },
+  rachaDuo: {
+    backgroundColor: '#34513A',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+  },
   rachaDuoText: { ...typography.label, color: '#E6F7CF' },
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.xl, paddingBottom: spacing.xxxl, gap: spacing.lg },
-  headerBlock: { gap: spacing.lg, marginBottom: spacing.md },
+  content: { padding: 20, paddingBottom: spacing.xxxl, gap: spacing.lg },
+  headerBlock: { gap: 12, marginBottom: spacing.md },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerLeft: { flexDirection: 'row', gap: spacing.md, alignItems: 'center', flex: 1 },
   greeting: { ...typography.caption, color: colors.textSecondary },

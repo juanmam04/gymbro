@@ -1,12 +1,9 @@
-import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import { router, Stack, useRootNavigationState, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
-import {
-  DMSans_400Regular,
-  DMSans_500Medium,
-  DMSans_700Bold,
-} from '@expo-google-fonts/dm-sans';
+import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -30,6 +27,26 @@ export default function RootLayout() {
     DMSans_500Medium,
     DMSans_700Bold,
   });
+
+  const navigationState = useRootNavigationState();
+
+  useEffect(() => {
+    if (!loaded || !navigationState?.key) return;
+    const handle = (response: Notifications.NotificationResponse) => {
+      const screen = response.notification.request.content.data?.screen;
+      if (screen === 'progress') router.push('/(tabs)/progress');
+      else if (screen === 'challenges') router.push('/challenges');
+      else if (screen === 'home') router.push('/(tabs)');
+    };
+    const listener = Notifications.addNotificationResponseReceivedListener(handle);
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        handle(response);
+        void Notifications.clearLastNotificationResponseAsync();
+      }
+    });
+    return () => listener.remove();
+  }, [loaded, navigationState?.key]);
 
   useEffect(() => {
     if (error) throw error;

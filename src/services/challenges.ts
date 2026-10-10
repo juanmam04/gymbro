@@ -1,7 +1,7 @@
 import { startOfWeek, format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import type { ChallengeMetric, ChallengeScope, WeeklyChallenge } from '@/types/database';
-import { countMealsByLocalDay, dayKey, lastNDayKeys } from '@/features/streaks/calculateStreaks';
+import { countMealsByLocalDay, dayKey } from '@/features/streaks/calculateStreaks';
 
 export const CHALLENGE_TEMPLATES: {
   metric: ChallengeMetric;
@@ -13,7 +13,7 @@ export const CHALLENGE_TEMPLATES: {
     metric: 'log_meals_days',
     title: 'Registrar comidas 5 días',
     targetDays: 5,
-    description: 'Al menos 2 comidas por día',
+    description: 'Al menos 1 comida por día',
   },
   {
     metric: 'protein_goal_days',
@@ -82,14 +82,15 @@ export function computeChallengeProgress(input: {
   now?: Date;
 }): { completedDays: number; targetDays: number } {
   const now = input.now ?? new Date();
-  const weekDays = lastNDayKeys(7, now).slice(-7);
-  // Align to Mon-Sun of current week roughly via last 7 including today
+  const start = startOfWeek(now, { weekStartsOn: 1 });
+  const weekDays: string[] = [];
+  for (let d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) weekDays.push(dayKey(d));
   const mealCounts = countMealsByLocalDay(input.meals.map((m) => ({ eatenAt: m.eatenAt })));
 
   let completed = 0;
   for (const day of weekDays) {
     if (input.metric === 'log_meals_days') {
-      if ((mealCounts.get(day) ?? 0) >= 2) completed += 1;
+      if ((mealCounts.get(day) ?? 0) >= 1) completed += 1;
     } else if (input.metric === 'protein_goal_days') {
       const protein = input.meals
         .filter((m) => dayKey(new Date(m.eatenAt)) === day)

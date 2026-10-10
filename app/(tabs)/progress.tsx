@@ -17,6 +17,8 @@ import { getNutritionGoals } from '@/services/partner';
 import { fetchMealsSince, fetchTodayTotals, fetchWeekDailyTotals } from '@/services/meals';
 import { fetchTodayWaterMl, fetchWaterSince, waterByDayMap } from '@/services/water';
 import { fetchLatestWeight, fetchWeightHistory } from '@/services/weight';
+import { weeklyReport } from '@/features/coaching/coach';
+import { useSubscription } from '@/hooks/useSubscription';
 import { getErrorMessage } from '@/utils/errors';
 
 type Scope = 'me' | 'partner';
@@ -25,7 +27,26 @@ type Range = 'today' | 'week' | 'month';
 export default function ProgressScreen() {
   const { user, partner, goals, profile } = useAuth();
   const [scope, setScope] = useState<Scope>('me');
-  const [range, setRange] = useState<Range>('today');
+  const [range, setRange] = useState<Range>('week');
+  const access = useSubscription();
+  const reportQuery = useQuery({
+    queryKey: ['weeklyReport', user?.id, new Date().toDateString()],
+    queryFn: () => {
+      const d = new Date();
+      d.setDate(d.getDate() - 15);
+      d.setHours(0, 0, 0, 0);
+      return fetchMealsSince(user!.id, d.toISOString());
+    },
+    enabled: Boolean(user),
+  });
+  const report = weeklyReport(
+    (reportQuery.data ?? []).map((m) => ({
+      eatenAt: m.eaten_at,
+      protein: Number(m.total_protein),
+      calories: Number(m.total_calories),
+    })),
+  );
+  const premium = access.data && access.data.plan !== 'free';
   const displayMode = profile?.nutrition_display_mode ?? 'simple';
 
   const targetUserId = scope === 'partner' && partner ? partner.id : user?.id;
@@ -33,16 +54,17 @@ export default function ProgressScreen() {
 
   const since = useMemo(() => {
     const d = new Date();
-    if (range === 'month') d.setDate(d.getDate() - 30);
+    if (range === 'month') d.setDate(d.getDate() - 29);
     else if (range === 'week') d.setDate(d.getDate() - 6);
     else d.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
     return d.toISOString();
   }, [range]);
 
   const goalsQuery = useQuery({
     queryKey: QUERY_KEYS.goals(targetUserId),
     queryFn: () => getNutritionGoals(targetUserId!),
-    enabled: Boolean(targetUserId),
+    enabled: Boolean(targetUserId) && (isSelf || Boolean(partner?.share_goals)),
   });
 
   const totalsQuery = useQuery({
@@ -52,8 +74,8 @@ export default function ProgressScreen() {
   });
 
   const weekQuery = useQuery({
-    queryKey: [...QUERY_KEYS.weekTotals(targetUserId), scope],
-    queryFn: () => fetchWeekDailyTotals(targetUserId!),
+    queryKey: [...QUERY_KEYS.weekTotals(targetUserId), scope, range],
+    queryFn: () => fetchWeekDailyTotals(targetUserId!, range === 'month' ? 30 : 7),
     enabled: Boolean(targetUserId) && range !== 'today',
   });
 
@@ -112,14 +134,77 @@ export default function ProgressScreen() {
 
   if (totalsQuery.isError) {
     return (
-      <ErrorState message={getErrorMessage(totalsQuery.error)} onRetry={() => totalsQuery.refetch()} />
+      <ErrorState
+        message={getErrorMessage(totalsQuery.error)}
+        onRetry={() => totalsQuery.refetch()}
+      />
     );
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Progreso</Text>
+        <Text style={styles.title}>Tu progreso</Text>
+        {isSelf && (
+          <View style={styles.metricCard}>
+            <Text style={styles.simpleTitle}>Tu semana, con perspectiva</Text>
+            {reportQuery.isLoading ? (
+              <Text style={styles.metricHint}>Preparando tu resumen…</Text>
+            ) : reportQuery.isError ? (
+              <Pressable onPress={() => void reportQuery.refetch()}>
+                <Text style={styles.link}>No pudimos cargarlo. Reintentar →</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Text style={styles.metricValue}>{report.loggedDays} de 7 días registrados</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {report.days.map((d) => (
+                    <View key={d.date} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+                      <View
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          backgroundColor: d.count ? colors.primary : colors.surfaceMuted,
+                        }}
+                      />
+                      <Text style={styles.dayLabel}>
+                        {format(parseISO(d.date), 'EEEEE', { locale: es })}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.metricHint}>{report.caveat}</Text>
+                {premium ? (
+                  <>
+                    <Text style={styles.simpleDetail}>
+                      {report.delta > 0
+                        ? `Registraste ${report.delta} días más que en los 7 días anteriores.`
+                        : report.delta < 0
+                          ? `Registraste ${Math.abs(report.delta)} días menos que en los 7 días anteriores. Podés retomar hoy.`
+                          : 'Mantuviste la cantidad de días registrados respecto de los 7 días anteriores.'}
+                    </Text>
+                    {report.averageLoggedProtein !== null && (
+                      <Text style={styles.metricHint}>
+                        ≈ {report.averageLoggedProtein} g de proteína por día registrado. Puede ser
+                        un registro incompleto.
+                      </Text>
+                    )}
+                    <Text style={styles.simpleTitle}>Una acción para la próxima semana</Text>
+                    <Text style={styles.simpleDetail}>{report.action}</Text>
+                  </>
+                ) : (
+                  <Pressable onPress={() => router.push('/subscription')}>
+                    <Text style={styles.link}>Comparación y próximo paso con Plus →</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
+          </View>
+        )}
+        <Pressable onPress={() => router.push('/challenges')}>
+          <Text style={styles.link}>Tu desafío de la semana →</Text>
+        </Pressable>
 
         {partner ? (
           <View style={styles.switchRow}>
@@ -150,7 +235,9 @@ export default function ProgressScreen() {
               onPress={() => setRange(key)}
               style={[styles.switchBtn, range === key && styles.switchActive]}
             >
-              <Text style={[styles.switchText, range === key && styles.switchTextActive]}>{label}</Text>
+              <Text style={[styles.switchText, range === key && styles.switchTextActive]}>
+                {label}
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -199,13 +286,13 @@ export default function ProgressScreen() {
         {range !== 'today' ? (
           <>
             <Text style={styles.section}>Calorías por día</Text>
-            <View style={styles.week}>
+            <ScrollView horizontal={range === 'month'} contentContainerStyle={styles.week}>
               {(weekQuery.data ?? []).map((day) => {
                 const height = Math.max(8, (day.calories / maxWeekCalories) * 120);
                 return (
                   <Pressable
                     key={day.date}
-                    style={styles.dayCol}
+                    style={[styles.dayCol, range === 'month' && { minWidth: 32, flex: 0 }]}
                     onPress={() => router.push('/history')}
                   >
                     <View style={[styles.bar, { height }]} />
@@ -216,7 +303,7 @@ export default function ProgressScreen() {
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
             {isSelf && waterHistoryQuery.data ? (
               <Text style={styles.metricHint}>
                 Agua promedio ≈{' '}
@@ -224,7 +311,7 @@ export default function ProgressScreen() {
                   [...waterByDayMap(waterHistoryQuery.data).values()].reduce((a, b) => a + b, 0) /
                     Math.max(waterByDayMap(waterHistoryQuery.data).size, 1),
                 )}{' '}
-                ml/día
+                ml por día con registros
               </Text>
             ) : null}
           </>

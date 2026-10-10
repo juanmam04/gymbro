@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateNutritionTargets } from '@/features/nutrition/services/calculateNutritionTargets';
-import {
-  calculateJointStreak,
-  calculatePersonalStreak,
-} from '@/features/streaks/calculateStreaks';
+import { calculateJointStreak, calculatePersonalStreak } from '@/features/streaks/calculateStreaks';
 import { generateNutritionInsights } from '@/features/insights/generateNutritionInsights';
 import { applyMealPrivacy, getSimpleDayMessage } from '@/features/privacy/privacy';
 import { getHumanErrorMessage } from '@/utils/errors';
@@ -55,7 +52,7 @@ describe('streaks', () => {
       { eatenAt: '2026-03-09T20:00:00' },
       { eatenAt: '2026-03-08T12:00:00' },
     ];
-    expect(calculatePersonalStreak(meals, { now })).toBe(2);
+    expect(calculatePersonalStreak(meals, { now, minMeals: 2 })).toBe(2);
   });
 
   it('requires both users for joint streak', () => {
@@ -71,20 +68,29 @@ describe('streaks', () => {
       { eatenAt: '2026-03-10T14:00:00' },
       { eatenAt: '2026-03-09T10:00:00' },
     ];
-    expect(calculateJointStreak(a, b, { now })).toBe(1);
+    expect(calculateJointStreak(a, b, { now, minMeals: 2 })).toBe(1);
   });
 });
 
 describe('RACHA streak resilience', () => {
   it('ignores malformed timestamps', () => {
-    expect(calculatePersonalStreak([{ eatenAt: 'invalid' }], { now: new Date('2026-03-10T18:00:00') })).toBe(0);
+    expect(
+      calculatePersonalStreak([{ eatenAt: 'invalid' }], { now: new Date('2026-03-10T18:00:00') }),
+    ).toBe(0);
   });
   it('permits explicit paused days without adding fake days', () => {
     const meals = [
-      { eatenAt: '2026-03-08T08:00:00' }, { eatenAt: '2026-03-08T12:00:00' },
-      { eatenAt: '2026-03-10T08:00:00' }, { eatenAt: '2026-03-10T12:00:00' },
+      { eatenAt: '2026-03-08T08:00:00' },
+      { eatenAt: '2026-03-08T12:00:00' },
+      { eatenAt: '2026-03-10T08:00:00' },
+      { eatenAt: '2026-03-10T12:00:00' },
     ];
-    expect(calculateJointStreak(meals, meals, { now: new Date('2026-03-10T18:00:00'), pausedDayKeys: ['2026-03-09'] })).toBe(2);
+    expect(
+      calculateJointStreak(meals, meals, {
+        now: new Date('2026-03-10T18:00:00'),
+        pausedDayKeys: ['2026-03-09'],
+      }),
+    ).toBe(2);
   });
 });
 

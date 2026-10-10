@@ -9,19 +9,8 @@ import type {
   MealType,
   MealWithDetails,
 } from '@/types/database';
+import { dayKey } from '@/features/streaks/calculateStreaks';
 import { inferMealType } from '@/utils/nutrition';
-
-function sumItems(items: EditableFoodItem[]) {
-  return items.reduce(
-    (acc, item) => ({
-      calories: acc.calories + item.calories,
-      protein: acc.protein + item.protein,
-      carbs: acc.carbs + item.carbs,
-      fat: acc.fat + item.fat,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  );
-}
 
 export async function uploadMealImage(userId: string, localUri: string): Promise<string> {
   const extension = localUri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? 'jpg';
@@ -72,50 +61,18 @@ export async function createMeal(input: {
   sharedGroupId?: string | null;
   scanStatus?: Meal['scan_status'];
 }): Promise<Meal> {
-  const totals = sumItems(input.items);
-  const mealType = input.mealType ?? inferMealType();
-
-  const { data: meal, error } = await supabase
-    .from('meals')
-    .insert({
-      user_id: input.userId,
-      image_url: input.imageUrl ?? null,
-      meal_type: mealType,
-      eaten_at: input.eatenAt ?? new Date().toISOString(),
-      total_calories: Math.round(totals.calories * 10) / 10,
-      total_protein: Math.round(totals.protein * 10) / 10,
-      total_carbs: Math.round(totals.carbs * 10) / 10,
-      total_fat: Math.round(totals.fat * 10) / 10,
-      scan_status: input.scanStatus ?? 'edited',
-      shared_with_partner: input.sharedWithPartner ?? false,
-      shared_group_id: input.sharedGroupId ?? null,
-    })
-    .select('*')
-    .maybeSingle();
-
+  const { data, error } = await supabase.rpc('save_racha_meal', {
+    p_items: input.items,
+    p_meal_type: input.mealType ?? inferMealType(),
+    p_eaten_at: input.eatenAt ?? new Date().toISOString(),
+    p_image_url: input.imageUrl ?? null,
+    p_shared_with_partner: input.sharedWithPartner ?? false,
+    p_shared_group_id: input.sharedGroupId ?? null,
+    p_scan_status: input.scanStatus ?? 'edited',
+  });
   if (error) throw error;
-  if (!meal) throw new Error('No se pudo crear la comida');
-
-  if (input.items.length > 0) {
-    const { error: itemsError } = await supabase.from('meal_items').insert(
-      input.items.map((item) => ({
-        meal_id: meal.id,
-        food_name: item.name,
-        quantity: item.grams,
-        unit: 'g',
-        grams: item.grams,
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        confidence: item.confidence,
-        source: item.source,
-      })),
-    );
-    if (itemsError) throw itemsError;
-  }
-
-  return meal;
+  if (!data) throw new Error('No se pudo registrar la comida');
+  return data as Meal;
 }
 
 const MEAL_SELECT = `
@@ -199,7 +156,9 @@ export async function fetchRecentMeals(userId: string, limit = 20): Promise<Meal
 export async function fetchMealsSince(userId: string, sinceIso: string): Promise<Meal[]> {
   const { data, error } = await supabase
     .from('meals')
-    .select('id, user_id, eaten_at, total_calories, total_protein, total_carbs, total_fat, meal_type, image_url, scan_status, notes, shared_with_partner, shared_group_id, created_at, updated_at')
+    .select(
+      'id, user_id, eaten_at, total_calories, total_protein, total_carbs, total_fat, meal_type, image_url, scan_status, notes, shared_with_partner, shared_group_id, created_at, updated_at',
+    )
     .eq('user_id', userId)
     .gte('eaten_at', sinceIso)
     .order('eaten_at', { ascending: false });
@@ -215,50 +174,15 @@ export async function updateMeal(input: {
   eatenAt?: string;
   items: EditableFoodItem[];
 }): Promise<Meal> {
-  const totals = sumItems(input.items);
-
-  const { data: meal, error } = await supabase
-    .from('meals')
-    .update({
-      meal_type: input.mealType,
-      eaten_at: input.eatenAt,
-      total_calories: Math.round(totals.calories * 10) / 10,
-      total_protein: Math.round(totals.protein * 10) / 10,
-      total_carbs: Math.round(totals.carbs * 10) / 10,
-      total_fat: Math.round(totals.fat * 10) / 10,
-      scan_status: 'edited',
-    })
-    .eq('id', input.mealId)
-    .eq('user_id', input.userId)
-    .select('*')
-    .maybeSingle();
-
+  const { data, error } = await supabase.rpc('save_racha_meal', {
+    p_items: input.items,
+    p_meal_id: input.mealId,
+    p_meal_type: input.mealType ?? null,
+    p_eaten_at: input.eatenAt ?? null,
+  });
   if (error) throw error;
-  if (!meal) throw new Error('No se pudo actualizar la comida');
-
-  const { error: delError } = await supabase.from('meal_items').delete().eq('meal_id', input.mealId);
-  if (delError) throw delError;
-
-  if (input.items.length > 0) {
-    const { error: itemsError } = await supabase.from('meal_items').insert(
-      input.items.map((item) => ({
-        meal_id: input.mealId,
-        food_name: item.name,
-        quantity: item.grams,
-        unit: 'g',
-        grams: item.grams,
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        confidence: item.confidence,
-        source: item.source,
-      })),
-    );
-    if (itemsError) throw itemsError;
-  }
-
-  return meal;
+  if (!data) throw new Error('No se pudo actualizar la comida');
+  return data as Meal;
 }
 
 export async function deleteMeal(mealId: string, userId: string): Promise<void> {
@@ -318,10 +242,10 @@ export async function fetchTodayTotals(userId: string) {
   );
 }
 
-export async function fetchWeekDailyTotals(userId: string) {
+export async function fetchWeekDailyTotals(userId: string, dayCount = 7) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - 6);
+  start.setDate(start.getDate() - (dayCount - 1));
 
   const { data, error } = await supabase
     .from('meals')
@@ -332,15 +256,16 @@ export async function fetchWeekDailyTotals(userId: string) {
 
   if (error) throw error;
 
-  const days: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {};
-  for (let i = 0; i < 7; i += 1) {
+  const days: Record<string, { calories: number; protein: number; carbs: number; fat: number }> =
+    {};
+  for (let i = 0; i < dayCount; i += 1) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
-    days[d.toISOString().slice(0, 10)] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    days[dayKey(d)] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
   }
 
   for (const meal of data ?? []) {
-    const key = new Date(meal.eaten_at).toISOString().slice(0, 10);
+    const key = dayKey(new Date(meal.eaten_at));
     const bucket = days[key];
     if (!bucket) continue;
     bucket.calories += Number(meal.total_calories);
