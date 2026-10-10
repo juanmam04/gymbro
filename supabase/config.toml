@@ -15,3 +15,12 @@ verify_jwt = true
 
 [functions.notify-partner]
 verify_jwt = false
+
+[functions.sync-subscription]
+verify_jwt = true
+
+[functions.revenuecat-webhook]
+verify_jwt = false
+
+[functions.send-support]
+verify_jwt = true

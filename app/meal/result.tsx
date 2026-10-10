@@ -22,12 +22,7 @@ import { colors, radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
 import { createMeal, uploadMealImage } from '@/services/meals';
 import { useScanDraftStore } from '@/stores/scan-draft';
-import {
-  createManualFood,
-  recalculateItem,
-  scaleItemByFactor,
-  sumTotals,
-} from '@/utils/nutrition';
+import { createManualFood, recalculateItem, scaleItemByFactor, sumTotals } from '@/utils/nutrition';
 import { getErrorMessage } from '@/utils/errors';
 import type { ConfidenceBand, EditableFoodItem } from '@/types/nutrition';
 
@@ -73,6 +68,11 @@ export default function MealResultScreen() {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.feed(user?.id) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todayTotals(user?.id) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.weekTotals(user?.id) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.mealsSince(user?.id) }),
+        queryClient.invalidateQueries({ queryKey: ['weeklyReport'] }),
+        queryClient.invalidateQueries({ queryKey: ['coachMeals'] }),
+        queryClient.invalidateQueries({ queryKey: ['challengeMeals'] }),
+        queryClient.invalidateQueries({ queryKey: ['subscription'] }),
       ]);
       reset();
       router.replace('/(tabs)');
@@ -128,9 +128,7 @@ export default function MealResultScreen() {
             <Image source={{ uri: imageUri }} style={styles.image} contentFit="cover" />
           ) : null}
 
-          {scanResult?.dishName ? (
-            <Text style={styles.dish}>{scanResult.dishName}</Text>
-          ) : null}
+          {scanResult?.dishName ? <Text style={styles.dish}>{scanResult.dishName}</Text> : null}
           <Text style={styles.estimate}>Estimación aproximada · podés corregir todo</Text>
 
           {pendingClarifications.map((c) => (

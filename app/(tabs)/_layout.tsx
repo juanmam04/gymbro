@@ -63,7 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Rachas',
+          title: 'Progreso',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart-outline" size={size} color={color} />
           ),

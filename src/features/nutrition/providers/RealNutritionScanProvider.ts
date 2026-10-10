@@ -19,15 +19,19 @@ export class RealNutritionScanProvider implements NutritionScanProvider {
   readonly name = 'real';
 
   async scanFood(imageUri: string): Promise<ScanResult> {
-    const started = Date.now();
     const base64 = await prepareImageBase64(imageUri);
+    return this.analyze({ imageBase64: base64, mimeType: 'image/jpeg' });
+  }
 
-    const { data, error } = await supabase.functions.invoke('analyze-food', {
-      body: {
-        imageBase64: base64,
-        mimeType: 'image/jpeg',
-      },
-    });
+  async scanText(mealText: string): Promise<ScanResult> {
+    if (mealText.trim().length < 3 || mealText.length > 1000)
+      throw new Error('Describí tu comida en hasta 1000 caracteres.');
+    return this.analyze({ mealText: mealText.trim() });
+  }
+
+  private async analyze(body: Record<string, string>): Promise<ScanResult> {
+    const started = Date.now();
+    const { data, error } = await supabase.functions.invoke('analyze-food', { body });
 
     if (error) {
       let detail = error.message;
@@ -43,28 +47,27 @@ export class RealNutritionScanProvider implements NutritionScanProvider {
           // keep original message
         }
       }
-      if (
-        data &&
-        typeof data === 'object' &&
-        'error' in data &&
-        !('foods' in data)
-      ) {
+      if (data && typeof data === 'object' && 'error' in data && !('foods' in data)) {
         detail = String((data as { error: unknown }).error);
         if ('code' in (data as object)) code = String((data as { code: unknown }).code);
       }
       logger.warn('analyze-food failed', { detail, code });
+      if (code === 'QUOTA_EXCEEDED')
+        throw new Error(
+          'Usaste tus análisis disponibles. Podés ver tu plan o seguir registrando manualmente.',
+        );
       if (code === 'INVALID_API_KEY' || detail.toLowerCase().includes('api key')) {
         throw new Error(
-          'La API key de OpenAI es inválida. Creá una nueva en platform.openai.com y actualizá OPENAI_API_KEY.',
+          'El análisis no está disponible en este momento. Podés registrar manualmente.',
         );
       }
       if (code === 'VISION_NOT_CONFIGURED') {
-        throw new Error(
-          'El scanner real todavía no está configurado. Falta OPENAI_API_KEY en Supabase Secrets.',
-        );
+        throw new Error('El análisis todavía no está disponible. Podés registrar manualmente.');
       }
       if (code === 'RATE_LIMITED') {
-        throw new Error('OpenAI está limitando requests. Esperá un minuto e intentá de nuevo.');
+        throw new Error(
+          'El servicio está recibiendo muchas solicitudes. Esperá un minuto e intentá de nuevo.',
+        );
       }
       throw new Error(mapScanError(`${code} ${detail}`.trim()));
     }
@@ -74,7 +77,7 @@ export class RealNutritionScanProvider implements NutritionScanProvider {
       const detail = String((data as { error: unknown }).error);
       if (code === 'INVALID_API_KEY') {
         throw new Error(
-          'La API key de OpenAI es inválida. Creá una nueva en platform.openai.com y actualizá OPENAI_API_KEY.',
+          'El análisis no está disponible en este momento. Podés registrar manualmente.',
         );
       }
       throw new Error(mapScanError(`${code} ${detail}`.trim()));
@@ -104,9 +107,7 @@ export class RealNutritionScanProvider implements NutritionScanProvider {
       if (isCountable) {
         if (!Number.isFinite(gramsPerUnit) || gramsPerUnit <= 0) {
           gramsPerUnit =
-            Number.isFinite(grams) && grams > 0
-              ? grams / count
-              : match?.hit.servingGrams || 40;
+            Number.isFinite(grams) && grams > 0 ? grams / count : match?.hit.servingGrams || 40;
         }
         grams = gramsPerUnit * count;
       } else {
@@ -116,7 +117,9 @@ export class RealNutritionScanProvider implements NutritionScanProvider {
 
       const portionConfidence = clamp01(item.portion_confidence ?? item.confidence ?? 0.5);
       const visionConfidence = clamp01(item.confidence ?? 0.5);
-      const countConfidence = clamp01(item.count_confidence ?? (isCountable ? visionConfidence : 1));
+      const countConfidence = clamp01(
+        item.count_confidence ?? (isCountable ? visionConfidence : 1),
+      );
       const matchConfidence = match?.confidence ?? 0.35;
       const per100 = match?.hit.per100g ?? {
         calories: 120,
@@ -125,9 +128,9 @@ export class RealNutritionScanProvider implements NutritionScanProvider {
         fat: 4,
       };
       const macros = calculateNutritionForGrams(per100, grams);
-      const baseName = item.display_name || match?.hit.displayName || item.visual_name || 'Alimento';
-      const displayName =
-        isCountable && count > 1 ? `${baseName} (×${count})` : baseName;
+      const baseName =
+        item.display_name || match?.hit.displayName || item.visual_name || 'Alimento';
+      const displayName = isCountable && count > 1 ? `${baseName} (×${count})` : baseName;
       const portionDescription =
         item.portion_description ||
         (isCountable && count > 1
@@ -254,7 +257,9 @@ async function prepareImageBase64(imageUri: string): Promise<string> {
   });
 
   if (base64.length > 2_000_000) {
-    throw new Error('La foto es demasiado pesada. Sacá otra un poco más cerca y con menos resolución.');
+    throw new Error(
+      'La foto es demasiado pesada. Sacá otra un poco más cerca y con menos resolución.',
+    );
   }
   return base64;
 }

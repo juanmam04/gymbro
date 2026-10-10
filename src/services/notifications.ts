@@ -16,10 +16,10 @@ Notifications.setNotificationHandler({
   }),
 });
 
+let currentDeviceToken: string | null = null;
+
 export type PushRegistrationResult =
-  | { status: 'granted'; token: string }
-  | { status: 'denied' }
-  | { status: 'unavailable' };
+  { status: 'granted'; token: string } | { status: 'denied' } | { status: 'unavailable' };
 
 /**
  * Registers Expo push token.
@@ -57,9 +57,7 @@ export async function registerForPushNotificationsAsync(
   }
 
   try {
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ??
-      Constants.easConfig?.projectId;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     if (!projectId || projectId === 'your-eas-project-id') {
       logger.warn('Push skipped: EAS projectId missing. Run eas init first.');
       return { status: 'unavailable' };
@@ -67,6 +65,7 @@ export async function registerForPushNotificationsAsync(
 
     const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenResult.data;
+    currentDeviceToken = token;
     const platform: DevicePlatform = Platform.OS === 'ios' ? 'ios' : 'android';
 
     const { error } = await supabase.from('device_tokens').upsert(
@@ -97,4 +96,70 @@ export async function clearLocalPushRegistration(userId: string, token?: string 
     return;
   }
   await supabase.from('device_tokens').delete().eq('expo_push_token', token);
+}
+
+let reminderQueue: Promise<void> = Promise.resolve();
+/** Reconcile opt-in local reminders without prompting for permission on launch. */
+export function syncLocalReminders(
+  userId: string | null,
+  preferences?: { notif_reminders: boolean; notif_progress: boolean },
+) {
+  reminderQueue = reminderQueue
+    .catch(() => undefined)
+    .then(async () => {
+      if (Platform.OS === 'web') return;
+      const existing = await Notifications.getAllScheduledNotificationsAsync();
+      for (const notification of existing) {
+        if (notification.content.data?.rachaReminder)
+          await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+      if (
+        !userId ||
+        !preferences ||
+        (await Notifications.getPermissionsAsync()).status !== 'granted'
+      )
+        return;
+      if (Platform.OS === 'android')
+        await Notifications.setNotificationChannelAsync('habits', {
+          name: 'Hábitos',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      if (preferences.notif_reminders)
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Un registro suma',
+            body: 'Si querés, registrá una comida de hoy. Un día a la vez.',
+            data: { rachaReminder: true, screen: 'home', userId },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour: 19,
+            minute: 30,
+            channelId: 'habits',
+          },
+        });
+      if (preferences.notif_progress)
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Una mirada a tu semana',
+            body: 'Revisá tus registros y elegí un paso para la próxima semana.',
+            data: { rachaReminder: true, screen: 'progress', userId },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: 1,
+            hour: 20,
+            minute: 0,
+            channelId: 'habits',
+          },
+        });
+    });
+  return reminderQueue;
+}
+
+export async function clearCurrentDevicePush(userId: string) {
+  if (!currentDeviceToken) return;
+  const token = currentDeviceToken; currentDeviceToken = null;
+  const { error } = await supabase.from('device_tokens').delete().eq('user_id', userId).eq('expo_push_token', token);
+  if (error) logger.warn('Could not clear current device push');
 }

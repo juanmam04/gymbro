@@ -1,4 +1,9 @@
-import { calculatePersonalStreak, countMealsByLocalDay, dayKey, lastNDayKeys } from '@/features/streaks/calculateStreaks';
+import {
+  calculatePersonalStreak,
+  countMealsByLocalDay,
+  dayKey,
+  lastNDayKeys,
+} from '@/features/streaks/calculateStreaks';
 
 export interface InsightInput {
   meals: { eatenAt: string; protein: number; calories: number }[];
@@ -52,7 +57,7 @@ export function generateNutritionInsights(input: InsightInput): NutritionInsight
     insights.push({
       id: 'protein',
       title: `Cumpliste tu objetivo de proteína ${proteinDays} de los últimos 7 días`,
-      detail: `Tu promedio de proteína esta semana fue ≈ ${avgProtein} g.`,
+      detail: `En los días registrados, el promedio de proteína fue ≈ ${avgProtein} g.`,
     });
   }
 
@@ -60,12 +65,14 @@ export function generateNutritionInsights(input: InsightInput): NutritionInsight
     insights.push({
       id: 'streak',
       title: `Llevás ${streak} día${streak === 1 ? '' : 's'} de racha`,
-      detail: 'Un día cuenta cuando registrás al menos 2 comidas.',
+      detail: 'Un día cuenta cuando registrás al menos 1 comida.',
     });
   }
 
   if (input.waterByDay && input.waterGoalMl) {
-    const waterDays = last7.filter((d) => (input.waterByDay!.get(d) ?? 0) >= input.waterGoalMl!).length;
+    const waterDays = last7.filter(
+      (d) => (input.waterByDay!.get(d) ?? 0) >= input.waterGoalMl!,
+    ).length;
     if (waterDays > 0) {
       insights.push({
         id: 'water',

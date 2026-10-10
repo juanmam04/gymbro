@@ -18,7 +18,7 @@ function formatMealTime(iso: string): string {
   const time = format(date, 'HH:mm');
   if (isToday(date)) return `Hoy · ${time}`;
   if (isYesterday(date)) return `Ayer · ${time}`;
-  return `${format(date, "d MMM", { locale: es })} · ${time}`;
+  return `${format(date, 'd MMM', { locale: es })} · ${time}`;
 }
 
 export function MealCard({ meal, currentUserId, onReact }: MealCardProps) {
@@ -46,15 +46,19 @@ export function MealCard({ meal, currentUserId, onReact }: MealCardProps) {
       )}
 
       <View style={styles.macros}>
-        <MacroChip label="kcal" value={`≈ ${Math.round(meal.total_calories)}`} />
-        <MacroChip label="prot" value={`${Math.round(meal.total_protein)}g`} />
-        <MacroChip label="carb" value={`${Math.round(meal.total_carbs)}g`} />
-        <MacroChip label="grasa" value={`${Math.round(meal.total_fat)}g`} />
+        {(meal.user_id === currentUserId || meal.profile.share_calories) && (
+          <MacroChip label="kcal" value={`≈ ${Math.round(meal.total_calories)}`} />
+        )}
+        {(meal.user_id === currentUserId || meal.profile.share_macros) && (
+          <>
+            <MacroChip label="prot" value={`${Math.round(meal.total_protein)}g`} />
+            <MacroChip label="carb" value={`${Math.round(meal.total_carbs)}g`} />
+            <MacroChip label="grasa" value={`${Math.round(meal.total_fat)}g`} />
+          </>
+        )}
       </View>
 
-      {topFoods.length > 0 ? (
-        <Text style={styles.foods}>{topFoods.join(' · ')}</Text>
-      ) : null}
+      {topFoods.length > 0 ? <Text style={styles.foods}>{topFoods.join(' · ')}</Text> : null}
 
       <Text style={styles.estimateNote}>Estimación nutricional</Text>
 
@@ -96,7 +100,10 @@ function MacroChip({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: radius.lg,
   },
   header: {
     flexDirection: 'row',
@@ -118,7 +125,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    aspectRatio: 4 / 5,
+    aspectRatio: 4 / 3,
     borderRadius: radius.lg,
     backgroundColor: colors.surfaceMuted,
   },

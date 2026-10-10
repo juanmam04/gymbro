@@ -37,7 +37,14 @@ export function Avatar({ name, uri, size = 40 }: AvatarProps) {
         },
       ]}
     >
-      <Text style={[styles.initials, { fontSize: size * 0.36 }]}>{initials || '?'}</Text>
+      <Text
+        style={[
+          styles.initials,
+          { fontSize: size * 0.36, lineHeight: size * 0.48, includeFontPadding: false },
+        ]}
+      >
+        {initials || '?'}
+      </Text>
     </View>
   );
 }

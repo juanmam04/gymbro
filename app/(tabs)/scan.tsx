@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +12,8 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { getNutritionScanProvider } from '@/features/nutrition/scan-provider';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 import { useScanDraftStore } from '@/stores/scan-draft';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/utils/errors';
 
 const PHASES = [
@@ -21,6 +24,10 @@ const PHASES = [
 ];
 
 export default function ScanScreen() {
+  const access = useSubscription();
+  const queryClient = useQueryClient();
+  const isFocused = useIsFocused();
+  const [taking, setTaking] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'back' | 'front'>('back');
@@ -31,7 +38,7 @@ export default function ScanScreen() {
   const setAnalyzing = useScanDraftStore((s) => s.setAnalyzing);
   const applyScanResult = useScanDraftStore((s) => s.applyScanResult);
   const reset = useScanDraftStore((s) => s.reset);
-  const cancelledRef = useRef(false);
+  const requestRef = useRef(0);
 
   useEffect(() => {
     if (!isAnalyzing) return;
@@ -49,7 +56,7 @@ export default function ScanScreen() {
     if (!result.granted) {
       Alert.alert(
         'Cámara desactivada',
-        'GymBro usa la cámara para escanear y registrar tus comidas. Podés habilitarla en Ajustes.',
+        'Racha usa la cámara para escanear y registrar tus comidas. Podés habilitarla en Ajustes.',
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Abrir Ajustes', onPress: () => void Linking.openSettings() },
@@ -59,11 +66,16 @@ export default function ScanScreen() {
   };
 
   const takePhoto = async () => {
-    const photo = await cameraRef.current?.takePictureAsync({
-      quality: 0.7,
-      skipProcessing: true,
-    });
-    if (photo?.uri) setImageUri(photo.uri);
+    if (taking) return;
+    setTaking(true);
+    try {
+      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.7 });
+      if (photo?.uri) setImageUri(photo.uri);
+    } catch (error) {
+      Alert.alert('No pudimos sacar la foto', getErrorMessage(error));
+    } finally {
+      setTaking(false);
+    }
   };
 
   const pickFromLibrary = async () => {
@@ -71,7 +83,7 @@ export default function ScanScreen() {
     if (!mediaPermission.granted) {
       Alert.alert(
         'Acceso a fotos',
-        'GymBro usa tus fotos para que puedas registrar comidas. Podés habilitarlo en Ajustes.',
+        'Racha usa tus fotos para que puedas registrar comidas. Podés habilitarlo en Ajustes.',
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Abrir Ajustes', onPress: () => void Linking.openSettings() },
@@ -88,12 +100,16 @@ export default function ScanScreen() {
 
   const analyze = async () => {
     if (!imageUri) return;
-    cancelledRef.current = false;
+    if (access.data?.remaining === 0) {
+      router.push('/subscription');
+      return;
+    }
+    const requestId = ++requestRef.current;
     setAnalyzing(true, PHASES[0]);
     try {
       const provider = getNutritionScanProvider();
       const result = await provider.scanFood(imageUri);
-      if (cancelledRef.current) return;
+      if (requestRef.current !== requestId) return;
       if (result.multiplePlatesSuspected) {
         Alert.alert(
           'Vemos más de un plato',
@@ -115,27 +131,36 @@ export default function ScanScreen() {
       applyScanResult(result);
       router.push('/meal/result');
     } catch (err) {
+      if (requestRef.current !== requestId) return;
       setAnalyzing(false);
       Alert.alert('No pudimos identificar bien esta comida', getErrorMessage(err), [
         { text: 'Otra foto', onPress: () => setImageUri(null) },
         { text: 'Agregar manualmente', onPress: () => router.push('/meal/manual') },
+        { text: 'Ver mi plan', onPress: () => router.push('/subscription') },
         { text: 'Cerrar', style: 'cancel' },
       ]);
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: ['subscription'] });
     }
   };
 
   if (!permission) return <LoadingState />;
 
-  if (!permission.granted) {
+  if (!permission.granted && !imageUri && !isAnalyzing) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.permission}>
           <Text style={styles.title}>Cámara para escanear</Text>
           <Text style={styles.subtitle}>
-            GymBro usa la cámara para escanear y registrar tus comidas. También podés elegir una foto de la galería.
+            Racha usa la cámara para escanear y registrar tus comidas. También podés elegir una foto
+            de la galería.
           </Text>
           <Button title="Permitir cámara" onPress={() => void askCameraPermission()} />
-          <Button title="Elegir de la galería" onPress={() => void pickFromLibrary()} variant="secondary" />
+          <Button
+            title="Elegir de la galería"
+            onPress={() => void pickFromLibrary()}
+            variant="secondary"
+          />
         </View>
       </SafeAreaView>
     );
@@ -150,7 +175,7 @@ export default function ScanScreen() {
             title="Cancelar"
             variant="ghost"
             onPress={() => {
-              cancelledRef.current = true;
+              requestRef.current += 1;
               setAnalyzing(false);
             }}
           />
@@ -163,7 +188,7 @@ export default function ScanScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.previewWrap}>
-          <Text style={styles.title}>Preview</Text>
+          <Text style={styles.title}>Revisá tu foto</Text>
           <Image source={{ uri: imageUri }} style={styles.preview} contentFit="cover" />
           <Text style={styles.hint}>
             La estimación no es una medición exacta. Vas a poder corregirla antes de guardar.
@@ -178,14 +203,29 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <CameraView ref={cameraRef} style={styles.camera} facing={facing}>
+      <View style={styles.camera}>
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+          active={isFocused}
+        />
         <View style={styles.overlay}>
           <Text style={styles.overlayTitle}>Escaneá tu comida</Text>
           <View style={styles.controls}>
-            <Pressable style={styles.sideButton} onPress={() => void pickFromLibrary()} accessibilityLabel="Galería">
+            <Pressable
+              style={styles.sideButton}
+              onPress={() => void pickFromLibrary()}
+              accessibilityLabel="Galería"
+            >
               <Ionicons name="images-outline" size={28} color={colors.white} />
             </Pressable>
-            <Pressable style={styles.shutter} onPress={() => void takePhoto()} accessibilityLabel="Tomar foto" />
+            <Pressable
+              disabled={taking}
+              style={styles.shutter}
+              onPress={() => void takePhoto()}
+              accessibilityLabel="Tomar foto"
+            />
             <Pressable
               style={styles.sideButton}
               onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
@@ -195,7 +235,7 @@ export default function ScanScreen() {
             </Pressable>
           </View>
         </View>
-      </CameraView>
+      </View>
     </SafeAreaView>
   );
 }

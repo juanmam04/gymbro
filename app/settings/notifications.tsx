@@ -1,7 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
@@ -24,12 +33,12 @@ const OPTIONS: { key: NotifKey; title: string; description: string }[] = [
   {
     key: 'notif_reminders',
     title: 'Recordatorios',
-    description: 'Avisos para registrar comidas y hábitos.',
+    description: 'Un aviso diario a las 19:30, hora de tu teléfono.',
   },
   {
     key: 'notif_progress',
     title: 'Progreso',
-    description: 'Rachas, metas y resumen semanal.',
+    description: 'Un aviso para revisar la semana los domingos a las 20:00.',
   },
 ];
 
@@ -60,7 +69,7 @@ export default function NotificationsSettingsScreen() {
       if (result.status === 'denied') {
         Alert.alert(
           'Notificaciones desactivadas',
-          'Para recibir avisos, habilitá las notificaciones de GymBro en Ajustes del sistema.',
+          'Para recibir avisos, habilitá las notificaciones de Racha en Ajustes del sistema.',
           [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Abrir Ajustes', onPress: () => void Linking.openSettings() },
