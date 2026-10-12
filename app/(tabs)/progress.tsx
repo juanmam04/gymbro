@@ -11,6 +11,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { NutritionSummary } from '@/features/feed/NutritionSummary';
 import { getSimpleDayMessage } from '@/features/privacy/privacy';
 import { QUERY_KEYS } from '@/constants';
+import { calculatePersonalStreak, countMealsByLocalDay, lastNDayKeys } from '@/features/streaks/calculateStreaks';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
 import { getNutritionGoals } from '@/services/partner';
@@ -101,6 +102,20 @@ export default function ProgressScreen() {
     mealCount: mealCountToday,
   });
 
+  const streakMealsQuery = useQuery({
+    queryKey: [...QUERY_KEYS.mealsSince(targetUserId), 'racha-60d'],
+    queryFn: () => {
+      const start = new Date();
+      start.setDate(start.getDate() - 60);
+      return fetchMealsSince(targetUserId!, start.toISOString());
+    },
+    enabled: Boolean(targetUserId),
+  });
+  const streakMeals = (streakMealsQuery.data ?? []).map((m) => ({ eatenAt: m.eaten_at }));
+  const personalStreak = calculatePersonalStreak(streakMeals);
+  const days = lastNDayKeys(7);
+  const activity = countMealsByLocalDay(streakMeals);
+
   const maxWeekCalories = useMemo(() => {
     const values = (weekQuery.data ?? []).map((d) => d.calories);
     return Math.max(...values, 1);
@@ -119,7 +134,7 @@ export default function ProgressScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Progreso</Text>
+        <Text style={styles.title}>Rachas y progreso</Text>
 
         {partner ? (
           <View style={styles.switchRow}>
@@ -153,6 +168,25 @@ export default function ProgressScreen() {
               <Text style={[styles.switchText, range === key && styles.switchTextActive]}>{label}</Text>
             </Pressable>
           ))}
+        </View>
+
+        <View style={styles.streakCard}>
+          <Text style={styles.streakKicker}>CONSTANCIA</Text>
+          <Text style={styles.streakBig}>🔥 {personalStreak} {personalStreak === 1 ? 'día' : 'días'}</Text>
+          <Text style={styles.streakDescription}>Registrá tus comidas y construí tu hábito. La constancia vale más que la perfección.</Text>
+          <View style={styles.streakDays}>
+            {days.map((day) => {
+              const done = (activity.get(day) ?? 0) >= 2;
+              return (
+                <View key={day} style={styles.streakDay}>
+                  <Text style={styles.streakDayLabel}>{format(parseISO(day), 'EEE', { locale: es }).slice(0, 2)}</Text>
+                  <View style={[styles.streakCircle, done && styles.streakCircleDone]}>
+                    <Text style={[styles.streakMark, done && styles.streakMarkDone]}>{done ? '✓' : '·'}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         {range === 'today' ? (
@@ -246,6 +280,17 @@ export default function ProgressScreen() {
 }
 
 const styles = StyleSheet.create({
+  streakCard: { backgroundColor: '#172A22', borderRadius: radius.xl, padding: spacing.xl, gap: spacing.md },
+  streakKicker: { ...typography.label, color: '#C8F56C', letterSpacing: 1 },
+  streakBig: { ...typography.h1, color: '#FFFFFF' },
+  streakDescription: { ...typography.caption, color: '#DAE9D8' },
+  streakDays: { flexDirection: 'row', justifyContent: 'space-between' },
+  streakDay: { alignItems: 'center', gap: 8 },
+  streakDayLabel: { ...typography.caption, color: '#E0EBDD', textTransform: 'capitalize' },
+  streakCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#375442', alignItems: 'center', justifyContent: 'center' },
+  streakCircleDone: { backgroundColor: '#C8F56C' },
+  streakMark: { ...typography.bodyMedium, color: '#BBD1B9' },
+  streakMarkDone: { color: '#172A22' },
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.xl, gap: spacing.xl, paddingBottom: spacing.xxxl },
   title: { ...typography.h1, color: colors.text },
