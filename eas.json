@@ -20,6 +20,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "juanmamartinez04@gmail.com",
+        "appleTeamId": "9YFU4VF3TL",
+        "bundleIdentifier": "com.juanmamartinez.gymbro"
+      }
+    }
   }
 }
